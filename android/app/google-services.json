@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "890488015074",
+    "project_id": "prodigenius-7af48",
+    "storage_bucket": "prodigenius-7af48.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:890488015074:android:806bb5acf53e0d4ee3f6bb",
+        "android_client_info": {
+          "package_name": "com.example.prodigenius"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfp7WnYObq7NB6UPqEJCFINQlv4xBlVUA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
