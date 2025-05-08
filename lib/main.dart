@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'firebase_options.dart';
 import 'screens/sign_in.dart';
 import 'screens/sign_up.dart';
-import 'screens/home.dart';
 import 'screens/forgot_password_screen.dart';
-import 'screens/profile_update_screen.dart';
-import 'firebase_options.dart';
+import 'screens/home.dart';
+import 'screens/settings_screen.dart';
 import 'services/notification_service.dart';
 
 void main() async {
@@ -58,6 +58,7 @@ class MyApp extends StatelessWidget {
         SignUpScreen.routeName: (context) => const SignUpScreen(),
         HomeScreen.routeName: (context) => const HomeScreen(),
         ForgotPasswordScreen.routeName: (context) => const ForgotPasswordScreen(),
+        SettingsScreen.routeName: (context) => const SettingsScreen(),
         // Profile update screen is handled via MaterialPageRoute with arguments
       },
     );

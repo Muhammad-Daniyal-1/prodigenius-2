@@ -43,10 +43,9 @@ dependencies:
   tflite_flutter: ^0.11.0
   logger: ^2.5.0
   permission_handler: ^11.0.1
-  google_sign_in: ^6.1.4
-  googleapis: ^11.4.0
-  googleapis_auth: ^1.4.1
+
   url_launcher: ^6.1.12
+  http: ^1.1.0
 
 
 

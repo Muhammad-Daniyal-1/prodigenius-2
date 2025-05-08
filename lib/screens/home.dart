@@ -228,39 +228,36 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.deepPurple,
         elevation: 0,
         title: Row(
           children: [
-            GestureDetector(
-              onTap: _showProfileOptionsSheet,
-              child: CircleAvatar(
-                backgroundColor: Colors.amber,
-                child: _userProfile != null && _userProfile!.displayName.isNotEmpty
-                    ? Text(
-                        _userProfile!.displayName[0].toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      )
-                    : const Icon(Icons.person, color: Colors.white),
+            CircleAvatar(
+              backgroundColor: Colors.white,
+              radius: 18,
+              child: Text(
+                _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
+                style: const TextStyle(
+                  color: Colors.deepPurple,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-            SizedBox(width: screenWidth * 0.03),
+            const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "Hello,",
-                  style: TextStyle(color: Colors.black, fontSize: 14),
+                Text(
+                  'Hello,',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 14,
+                  ),
                 ),
                 Text(
                   _userName,
                   style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 14,
+                    color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -270,12 +267,17 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.calendar_today, color: Colors.black),
-            onPressed: () {},
+            icon: const Icon(Icons.notifications, color: Colors.white),
+            onPressed: () {
+              // TODO: Show notifications
+            },
           ),
           IconButton(
-            icon: const Icon(Icons.notifications, color: Colors.black),
-            onPressed: () {},
+            icon: const Icon(Icons.settings, color: Colors.white),
+            onPressed: () {
+              // Navigate to Settings screen
+              Navigator.pushNamed(context, '/settings');
+            },
           ),
         ],
       ),
