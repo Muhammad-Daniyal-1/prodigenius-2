@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/category_model.dart';
 import '../models/task_model.dart';
+import 'notification_service.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final NotificationService _notificationService = NotificationService();
 
   // Collections
   final String _categoriesCollection = 'categories';
@@ -77,6 +79,24 @@ class FirestoreService {
 
       // Update the task with the generated ID
       await docRef.update({'id': docRef.id});
+      
+      // Create a new task model with the generated ID
+      final updatedTask = TaskModel(
+        id: docRef.id,
+        userId: task.userId,
+        title: task.title,
+        description: task.description,
+        categoryId: task.categoryId,
+        dueDate: task.dueDate,
+        priority: task.priority,
+        status: task.status,
+        createdAt: task.createdAt,
+        complexity: task.complexity,
+        prototizeByAI: task.prototizeByAI,
+      );
+      
+      // Schedule deadline notifications
+      await _notificationService.scheduleTaskDeadlineNotification(updatedTask);
     } catch (e) {
       rethrow;
     }
@@ -122,6 +142,10 @@ class FirestoreService {
           .collection(_tasksCollection)
           .doc(task.id)
           .update(task.toMap());
+      
+      // Cancel existing notifications and schedule new ones
+      await _notificationService.cancelTaskNotifications(task);
+      await _notificationService.scheduleTaskDeadlineNotification(task);
     } catch (e) {
       rethrow;
     }
@@ -141,6 +165,13 @@ class FirestoreService {
 
   Future<void> deleteTask(String taskId) async {
     try {
+      // Get the task before deleting to cancel notifications
+      final docSnapshot = await _firestore.collection(_tasksCollection).doc(taskId).get();
+      if (docSnapshot.exists) {
+        final task = TaskModel.fromMap(docSnapshot.data() as Map<String, dynamic>, taskId);
+        await _notificationService.cancelTaskNotifications(task);
+      }
+      
       await _firestore.collection(_tasksCollection).doc(taskId).delete();
     } catch (e) {
       rethrow;
@@ -153,6 +184,15 @@ class FirestoreService {
       await _firestore.collection(_tasksCollection).doc(taskId).update({
         'status': status,
       });
+      
+      // If task is completed, cancel the notifications
+      if (status == 'Completed') {
+        final docSnapshot = await _firestore.collection(_tasksCollection).doc(taskId).get();
+        if (docSnapshot.exists) {
+          final task = TaskModel.fromMap(docSnapshot.data() as Map<String, dynamic>, taskId);
+          await _notificationService.cancelTaskNotifications(task);
+        }
+      }
     } catch (e) {
       rethrow;
     }

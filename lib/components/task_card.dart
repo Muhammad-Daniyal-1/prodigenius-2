@@ -10,6 +10,8 @@ class TaskCard extends StatelessWidget {
   final TaskPriority? priority;
   final bool completed;
   final bool? prioritizedByAI;
+  final String? taskId;
+  final Function(String taskId, String newStatus)? onStatusUpdate;
   // final List<Color> teamAvatars;
 
   const TaskCard({
@@ -21,6 +23,8 @@ class TaskCard extends StatelessWidget {
     this.priority,
     this.completed = false,
     this.prioritizedByAI,
+    this.taskId,
+    this.onStatusUpdate,
     // required this.teamAvatars,
   });
 
@@ -76,7 +80,53 @@ class TaskCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (completed) const Icon(Icons.check_circle, color: Colors.blue),
+              Row(
+                children: [
+                  if (completed) 
+                    const Icon(Icons.check_circle, color: Colors.blue),
+                  if (!completed && taskId != null && onStatusUpdate != null)
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert, color: Colors.grey),
+                      onSelected: (String value) {
+                        if (onStatusUpdate != null && taskId != null) {
+                          onStatusUpdate!(taskId!, value);
+                        }
+                      },
+                      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                        const PopupMenuItem<String>(
+                          value: 'Completed',
+                          child: Row(
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.green),
+                              SizedBox(width: 8),
+                              Text('Mark as Completed'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem<String>(
+                          value: 'In Progress',
+                          child: Row(
+                            children: [
+                              Icon(Icons.play_circle_filled, color: Colors.blue),
+                              SizedBox(width: 8),
+                              Text('Mark as In Progress'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem<String>(
+                          value: 'To Do',
+                          child: Row(
+                            children: [
+                              Icon(Icons.pending, color: Colors.orange),
+                              SizedBox(width: 8),
+                              Text('Move back to To Do'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 5),

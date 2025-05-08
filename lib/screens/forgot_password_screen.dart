@@ -1,60 +1,103 @@
 import 'package:flutter/material.dart';
-import 'sign_up.dart';
-import 'home.dart';
-import 'forgot_password_screen.dart';
-import '../services/firebase_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'sign_in.dart';
 
-class SignInScreen extends StatefulWidget {
-  static const String routeName = '/signin';
+class ForgotPasswordScreen extends StatefulWidget {
+  static const String routeName = '/forgot-password';
 
-  const SignInScreen({super.key});
+  const ForgotPasswordScreen({Key? key}) : super(key: key);
 
   @override
-  State<SignInScreen> createState() => _SignInScreenState();
+  _ForgotPasswordScreenState createState() => _ForgotPasswordScreenState();
 }
 
-class _SignInScreenState extends State<SignInScreen> {
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _firebaseService = FirebaseService();
   bool _isLoading = false;
-  bool rememberMe = false;
 
-  void _signIn() async {
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _resetPassword() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
-
+      
       try {
-        await _firebaseService.signIn(
-          _emailController.text.trim(),
-          _passwordController.text,
+        debugPrint('Sending password reset email to: ${_emailController.text.trim()}');
+        await FirebaseAuth.instance.sendPasswordResetEmail(
+          email: _emailController.text.trim(),
         );
-
+        
         if (!mounted) return;
-
-        // Show success message and navigate to home
+        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Sign in successful!'),
+            content: Text('Password reset email sent! Check your inbox.'),
             backgroundColor: Colors.green,
           ),
         );
-
-        // Replace the current screen with Home screen
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          HomeScreen.routeName,
-          (route) => false,
-        );
-      } catch (e) {
+        
+        // Navigate back to sign in screen
+        Navigator.pushReplacementNamed(context, SignInScreen.routeName);
+      } on FirebaseAuthException catch (e) {
         if (!mounted) return;
+        
+        String errorMessage = 'An error occurred. Please try again.';
+        Color errorColor = Colors.red;
+        IconData errorIcon = Icons.error;
+        
+        if (e.code == 'user-not-found') {
+          errorMessage = 'No user found with this email. Please check the email address or create a new account.';
+          errorIcon = Icons.person_off;
+        } else if (e.code == 'invalid-email') {
+          errorMessage = 'Please enter a valid email address.';
+          errorIcon = Icons.email_outlined;
+        }
+        
+        // Show a more prominent error message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Row(
+              children: [
+                Icon(errorIcon, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    errorMessage,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: errorColor,
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              },
+            ),
+          ),
+        );
+        
+        debugPrint('FirebaseAuthException during password reset: ${e.code}');
+        debugPrint('Error message: ${e.message}');
+      } catch (e) {
+        if (!mounted) return;
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('An unexpected error occurred. Please try again.'),
             backgroundColor: Colors.red,
           ),
         );
+        
+        debugPrint('Unexpected error during password reset: $e');
       } finally {
         if (mounted) {
           setState(() => _isLoading = false);
@@ -64,16 +107,21 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: IconThemeData(color: Colors.grey[900]),
+        title: Text(
+          'Forgot Password',
+          style: TextStyle(
+            color: Colors.grey[900],
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Center(
@@ -84,7 +132,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Welcome back",
+                    "Reset your password",
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
@@ -94,7 +142,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   const SizedBox(height: 5),
 
                   Text(
-                    "We're glad to see you again! Please sign in below.",
+                    "Enter your email and we'll send you a link to reset your password.",
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey[600],
@@ -126,68 +174,13 @@ class _SignInScreenState extends State<SignInScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 15),
-
-                  const Text(
-                    "Password",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 5),
-
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      hintText: "••••••••",
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Enter your password.';
-                      } else if (value.length < 6) {
-                        return 'Password must be at least 6 characters.';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 10),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Checkbox(
-                            value: rememberMe,
-                            onChanged: (bool? value) {
-                              setState(() {
-                                rememberMe = value ?? false;
-                              });
-                            },
-                          ),
-                          const Text("Remember Me"),
-                        ],
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, ForgotPasswordScreen.routeName);
-                        },
-                        child: const Text(
-                          "Forgot password?",
-                          style: TextStyle(color: Colors.purple),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 25),
 
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _signIn,
+                      onPressed: _isLoading ? null : _resetPassword,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.purple,
                         shape: RoundedRectangleBorder(
@@ -200,7 +193,7 @@ class _SignInScreenState extends State<SignInScreen> {
                               color: Colors.white,
                             )
                           : const Text(
-                              "Sign In",
+                              "Reset Password",
                               style: TextStyle(
                                 fontSize: 16,
                                 color: Colors.white,
@@ -215,15 +208,16 @@ class _SignInScreenState extends State<SignInScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        "Don't have an account? ",
+                        "Remember your password? ",
                         style: TextStyle(color: Colors.grey[700]),
                       ),
                       TextButton(
                         onPressed: () {
-                          Navigator.pushNamed(context, SignUpScreen.routeName);
+                          Navigator.pushReplacementNamed(
+                              context, SignInScreen.routeName);
                         },
                         child: const Text(
-                          'Sign Up',
+                          'Sign In',
                           style: TextStyle(color: Colors.purple, fontSize: 16),
                         ),
                       ),

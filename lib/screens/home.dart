@@ -4,11 +4,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:prodigenius/models/task_model.dart';
 import 'package:prodigenius/models/category_model.dart';
+import 'package:prodigenius/models/user_profile_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/firestore_service.dart';
+import '../services/firebase_service.dart';
 import '../components/task_card.dart';
 import '../components/bottom_sheets/add_task_sheet.dart';
 import '../components/bottom_sheets/add_category_sheet.dart';
+import '../components/bottom_sheets/profile_options_sheet.dart';
 import '../ml/ml_service.dart';
 import '../ml/preprocessing.dart';
 import 'package:logger/logger.dart';
@@ -27,11 +30,14 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _timeController = TextEditingController();
   String _userName = 'User';
   final FirestoreService _firestoreService = FirestoreService();
+  final FirebaseService _firebaseService = FirebaseService();
+  UserProfileModel? _userProfile;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _loadUserProfile();
   }
 
   @override
@@ -44,8 +50,25 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _userName = prefs.getString('email') ?? 'User';
+      _userName = prefs.getString('userEmail') ?? 'User';
     });
+  }
+  
+  Future<void> _loadUserProfile() async {
+    try {
+      final userId = await _firebaseService.getCurrentUserId();
+      if (userId != null) {
+        final profile = await _firebaseService.getUserProfile(userId);
+        if (profile != null && mounted) {
+          setState(() {
+            _userProfile = profile;
+            _userName = profile.displayName;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading user profile: $e');
+    }
   }
 
   void _showOptionsMenu() {
@@ -168,6 +191,35 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
     );
   }
+  
+  void _showProfileOptionsSheet() async {
+    if (_userProfile == null) {
+      final userId = await _firebaseService.getCurrentUserId();
+      if (userId != null) {
+        _userProfile = await _firebaseService.getUserProfile(userId);
+        if (!mounted) return;
+      } else {
+        return; // No user ID available
+      }
+    }
+    
+    if (!mounted) return;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => ProfileOptionsSheet(
+        userProfile: _userProfile!,
+        firebaseService: _firebaseService,
+        onProfileUpdated: () {
+          _loadUserProfile(); // Refresh profile data after update
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -180,9 +232,21 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         title: Row(
           children: [
-            const CircleAvatar(
-              backgroundColor: Colors.amber,
-              child: Icon(Icons.person, color: Colors.white),
+            GestureDetector(
+              onTap: _showProfileOptionsSheet,
+              child: CircleAvatar(
+                backgroundColor: Colors.amber,
+                child: _userProfile != null && _userProfile!.displayName.isNotEmpty
+                    ? Text(
+                        _userProfile!.displayName[0].toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      )
+                    : const Icon(Icons.person, color: Colors.white),
+              ),
             ),
             SizedBox(width: screenWidth * 0.03),
             Column(
@@ -244,6 +308,7 @@ class _HomeScreenBodyState extends State<HomeScreenBody> {
   void initState() {
     super.initState();
     _loadUserData();
+    _loadUserProfile();
   }
 
   @override
@@ -262,6 +327,21 @@ class _HomeScreenBodyState extends State<HomeScreenBody> {
       });
       _setupTasksListener();
       _loadCategories();
+    }
+  }
+  
+  Future<void> _loadUserProfile() async {
+    try {
+      final firebaseService = FirebaseService();
+      final userId = await firebaseService.getCurrentUserId();
+      if (userId != null && mounted) {
+        // We only need the user ID for tasks, we don't need to update the UI with profile info here
+        setState(() {
+          _userId = userId;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading user profile in HomeScreenBody: $e');
     }
   }
   
@@ -443,69 +523,65 @@ class _HomeScreenBodyState extends State<HomeScreenBody> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<List<TaskModel>>>(
-      future: Future.wait([
-        _getTasksByStatus('In Progress'),
-        _getTasksByStatus('To Do'),
-        _getTasksByStatus('Completed'),
-      ]),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final inProgressTasks = snapshot.data![0];
-        final todoTasks = snapshot.data![1];
-        final completedTasks = snapshot.data![2];
-
-        return RefreshIndicator(
-          onRefresh: _loadTasks,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // In Progress Section
-                Text(
-                  "In Progress (${inProgressTasks.length})",
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildTaskList(inProgressTasks, true),
-                const SizedBox(height: 20),
-
-                // To Do Section
-                Text(
-                  "To Do (${todoTasks.length})",
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildTaskList(todoTasks, true),
-                const SizedBox(height: 20),
-
-                // Completed Section
-                Text(
-                  "Completed (${completedTasks.length})",
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildTaskList(completedTasks, false),
-                const SizedBox(height: 80), // Prevent bottom overflow
-              ],
+    // Use the tasks from the stream directly instead of calling _getTasksByStatus
+    // which triggers the ML processing on every rebuild
+    
+    // Filter tasks by status
+    final inProgressTasks = _tasks.where((task) => task.status == 'In Progress').toList();
+    final todoTasks = _tasks.where((task) => task.status == 'To Do').toList();
+    final completedTasks = _tasks.where((task) => task.status == 'Completed').toList();
+    
+    // Show loading indicator only if we have no tasks and are still waiting for data
+    if (_tasks.isEmpty && _userId != null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    
+    return RefreshIndicator(
+      onRefresh: _loadTasks,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // In Progress Section
+            Text(
+              "In Progress (${inProgressTasks.length})",
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-        );
-      },
+            const SizedBox(height: 10),
+            _buildTaskList(inProgressTasks, true),
+            const SizedBox(height: 20),
+
+            // To Do Section
+            Text(
+              "To Do (${todoTasks.length})",
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            _buildTaskList(todoTasks, true),
+            const SizedBox(height: 20),
+
+            // Completed Section
+            Text(
+              "Completed (${completedTasks.length})",
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            _buildTaskList(completedTasks, false),
+            const SizedBox(height: 80), // Prevent bottom overflow
+          ],
+        ),
+      ),
     );
   }
 
@@ -544,6 +620,26 @@ class _HomeScreenBodyState extends State<HomeScreenBody> {
     }
   }
 
+  // Update task status method
+  Future<void> _updateTaskStatus(String taskId, String newStatus) async {
+    try {
+      await _firestoreService.updateTaskStatus(taskId, newStatus);
+      
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Task updated to $newStatus')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating task: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
   Widget _buildTaskCard(TaskModel task) {
     // Format date
     final dueDate = task.dueDate;
@@ -563,6 +659,8 @@ class _HomeScreenBodyState extends State<HomeScreenBody> {
       priority: task.priority,
       completed: task.status == 'Completed',
       prioritizedByAI: task.prototizeByAI,
+      taskId: task.id,
+      onStatusUpdate: _updateTaskStatus,
       // teamAvatars: const [Colors.blue, Colors.green], // Default avatars
     );
   }

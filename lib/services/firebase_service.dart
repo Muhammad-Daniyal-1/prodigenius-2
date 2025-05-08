@@ -1,9 +1,13 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import '../models/user_profile_model.dart';
 
 class FirebaseService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final String _usersCollection = 'users';
 
   Future<UserCredential> signUp(String email, String password) async {
     try {
@@ -22,6 +26,20 @@ class FirebaseService {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('userEmail', email);
         await prefs.setString('userId', userCredential.user!.uid);
+        
+        // Create user profile in Firestore
+        final userProfile = UserProfileModel(
+          id: userCredential.user!.uid,
+          email: email,
+          displayName: email.split('@')[0], // Default display name from email
+        );
+        
+        await _firestore
+            .collection(_usersCollection)
+            .doc(userCredential.user!.uid)
+            .set(userProfile.toMap());
+            
+        debugPrint('User profile created in Firestore');
         debugPrint('User data stored successfully');
       }
       
@@ -95,6 +113,68 @@ class FirebaseService {
     final userEmail = prefs.getString('userEmail');
     debugPrint('Current user email: $userEmail');
     return userEmail;
+  }
+  
+  Future<UserProfileModel?> getUserProfile(String userId) async {
+    try {
+      debugPrint('Getting user profile for ID: $userId');
+      final docSnapshot = await _firestore.collection(_usersCollection).doc(userId).get();
+      
+      if (docSnapshot.exists) {
+        debugPrint('User profile found');
+        return UserProfileModel.fromMap(docSnapshot.data() as Map<String, dynamic>, userId);
+      } else {
+        debugPrint('User profile not found, creating default profile');
+        // If profile doesn't exist, create one with default values
+        final userEmail = await getCurrentUserEmail();
+        if (userEmail != null) {
+          final defaultProfile = UserProfileModel(
+            id: userId,
+            email: userEmail,
+            displayName: userEmail.split('@')[0],
+          );
+          
+          await _firestore
+              .collection(_usersCollection)
+              .doc(userId)
+              .set(defaultProfile.toMap());
+              
+          return defaultProfile;
+        }
+        return null;
+      }
+    } catch (e) {
+      debugPrint('Error getting user profile: $e');
+      return null;
+    }
+  }
+  
+  Future<bool> updateUserProfile(UserProfileModel profile) async {
+    try {
+      debugPrint('Updating user profile for ID: ${profile.id}');
+      await _firestore
+          .collection(_usersCollection)
+          .doc(profile.id)
+          .update({
+        'displayName': profile.displayName,
+        'photoUrl': profile.photoUrl,
+      });
+      
+      // Update current user display name in Firebase Auth
+      final user = _auth.currentUser;
+      if (user != null) {
+        await user.updateDisplayName(profile.displayName);
+        if (profile.photoUrl != null) {
+          await user.updatePhotoURL(profile.photoUrl);
+        }
+      }
+      
+      debugPrint('User profile updated successfully');
+      return true;
+    } catch (e) {
+      debugPrint('Error updating user profile: $e');
+      return false;
+    }
   }
 
   String _getFirebaseAuthErrorMessage(String code) {
