@@ -1,0 +1,56 @@
+# Flutter & Dart related
+.dart_tool/
+.packages
+.pub-cache/
+.buildlog
+.flutter-plugins
+.flutter-plugins-dependencies
+.melos_tool/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+
+# Build outputs
+build/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/App.framework
+android/.gradle/
+android/app/debug
+android/app/profile
+android/app/release
+
+# iOS related
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+
+# macOS related
+macos/Flutter/GeneratedPluginRegistrant.swift
+macos/Flutter/ephemeral/
+
+# Web related
+web/.dart_tool/
+web/build/
+
+# Windows related
+windows/flutter/ephemeral/
+windows/.dart_tool/
+
+# Linux related
+linux/flutter/ephemeral/
+linux/.dart_tool/
+
+# Environment variables
+.env
+
+# Firebase & crashlytics
+*.firebase
+crashlytics/
+
+# Other
+*.log
+*.lock
