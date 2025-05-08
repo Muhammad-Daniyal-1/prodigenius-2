@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:prodigenius/models/task_model.dart';
+import 'package:prodigenius/models/category_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/firestore_service.dart';
 import '../components/task_card.dart';
@@ -237,6 +238,7 @@ class _HomeScreenBodyState extends State<HomeScreenBody> {
   String? _userId;
   StreamSubscription? _tasksSubscription;
   final Logger _logger = Logger();
+  Map<String, String> _categoryCache = {}; // Cache for category names
 
   @override
   void initState() {
@@ -259,6 +261,34 @@ class _HomeScreenBodyState extends State<HomeScreenBody> {
         _userId = userId;
       });
       _setupTasksListener();
+      _loadCategories();
+    }
+  }
+  
+  // Load all categories and cache them for quick access
+  Future<void> _loadCategories() async {
+    if (_userId == null) return;
+    
+    try {
+      final categories = await _firestoreService.getCategoriesByUser(_userId!);
+      
+      if (mounted) {
+        setState(() {
+          // Clear the cache and rebuild it
+          _categoryCache.clear();
+          
+          // Add each category to the cache with id as key and title as value
+          for (final category in categories) {
+            _categoryCache[category.id] = category.title;
+          }
+        });
+        
+        if (kDebugMode) {
+          print('Loaded ${categories.length} categories into cache');
+        }
+      }
+    } catch (e) {
+      _logger.e('Error loading categories: $e');
     }
   }
 
@@ -334,7 +364,7 @@ class _HomeScreenBodyState extends State<HomeScreenBody> {
     List<TaskModel> tasks =
         _tasks.where((task) => task.status == status).toList();
 
-    if (status == "In Progress" &&
+    if ((status == "In Progress" || status == "To Do") &&
         tasks.any((task) => task.prototizeByAI == true)) {
       // Prepare inputs for ML model
       List<String> dates =
@@ -496,9 +526,14 @@ class _HomeScreenBodyState extends State<HomeScreenBody> {
         height: 200,
         child: PageView.builder(
           itemCount: tasks.length,
+          controller: PageController(viewportFraction: 0.8, initialPage: 0),
+          padEnds: true,
           itemBuilder: (context, index) {
             final task = tasks[index];
-            return _buildTaskCard(task);
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: _buildTaskCard(task),
+            );
           },
         ),
       );
@@ -510,25 +545,34 @@ class _HomeScreenBodyState extends State<HomeScreenBody> {
   }
 
   Widget _buildTaskCard(TaskModel task) {
-    // Calculate progress percentage based on status
-    int progress = 0;
-    if (task.status == 'In Progress') {
-      progress = 50;
-    } else if (task.status == 'Completed') {
-      progress = 100;
-    }
-
     // Format date
     final dueDate = task.dueDate;
     final formattedDate = "${dueDate.day}/${dueDate.month}/${dueDate.year}";
+
+    // Get category name from cache
+    String? categoryName;
+    if (task.categoryId != null && _categoryCache.containsKey(task.categoryId)) {
+      categoryName = _categoryCache[task.categoryId];
+    }
 
     return TaskCard(
       title: task.title,
       date: formattedDate,
       description: task.description,
-      progress: progress,
+      category: categoryName,
+      priority: task.priority,
       completed: task.status == 'Completed',
-      teamAvatars: const [Colors.blue, Colors.green], // Default avatars
+      prioritizedByAI: task.prototizeByAI,
+      // teamAvatars: const [Colors.blue, Colors.green], // Default avatars
     );
+  }
+  
+  // Helper method to refresh categories when needed
+  Future<void> refreshCategories() async {
+    await _loadCategories();
+    // Force a rebuild to update the UI with new category data
+    if (mounted) {
+      setState(() {});
+    }
   }
 }
