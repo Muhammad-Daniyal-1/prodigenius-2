@@ -12,6 +12,8 @@ class TaskCard extends StatelessWidget {
   final bool? prioritizedByAI;
   final String? taskId;
   final Function(String taskId, String newStatus)? onStatusUpdate;
+  final Function(String taskId)? onEdit;
+  final Function(String taskId)? onDelete;
   // final List<Color> teamAvatars;
 
   const TaskCard({
@@ -25,6 +27,8 @@ class TaskCard extends StatelessWidget {
     this.prioritizedByAI,
     this.taskId,
     this.onStatusUpdate,
+    this.onEdit,
+    this.onDelete,
     // required this.teamAvatars,
   });
 
@@ -84,6 +88,24 @@ class TaskCard extends StatelessWidget {
                 children: [
                   if (completed) 
                     const Icon(Icons.check_circle, color: Colors.blue),
+                  if (!completed && taskId != null && onStatusUpdate != null)
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
+                      onPressed: () {
+                        if (onEdit != null && taskId != null) {
+                          onEdit!(taskId!);
+                        }
+                      },
+                    ),
+                  if (taskId != null && onDelete != null)
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                      onPressed: () {
+                        if (onDelete != null && taskId != null) {
+                          onDelete!(taskId!);
+                        }
+                      },
+                    ),
                   if (!completed && taskId != null && onStatusUpdate != null)
                     PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert, color: Colors.grey),
