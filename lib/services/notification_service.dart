@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/task_model.dart';
 import 'dart:async';
-import 'dart:io';
-import 'package:permission_handler/permission_handler.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -28,23 +26,6 @@ class NotificationService {
     // For in-app notifications using SnackBar, we don't need special permissions
     // But we should log this for debugging
     debugPrint('Requesting notification permissions');
-    
-    // On Android 13+ (API level 33+), we need to request notification permissions
-    if (Platform.isAndroid) {
-      try {
-        // Check if we can request permissions directly
-        final status = await Permission.notification.status;
-        if (status.isDenied) {
-          debugPrint('Notification permission is denied, requesting...');
-          final result = await Permission.notification.request();
-          debugPrint('Notification permission request result: $result');
-        } else {
-          debugPrint('Notification permission already granted: $status');
-        }
-      } catch (e) {
-        debugPrint('Error requesting notification permissions: $e');
-      }
-    }
   }
 
   // Schedule a notification for a task deadline
@@ -221,6 +202,4 @@ class NotificationService {
       }
     }
   }
-  
-
 }

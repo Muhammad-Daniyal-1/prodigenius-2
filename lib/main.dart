@@ -13,30 +13,41 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // Initialize notification service
+  // Initialize notification service before app starts
   final notificationService = NotificationService();
+  final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
   await notificationService.requestPermissions();
-  
-  // Log that initialization is complete
-  debugPrint('Notification permissions requested');
 
   // Check if the user is already logged in
   final prefs = await SharedPreferences.getInstance();
   final userId = prefs.getString('userId');
 
-  runApp(MyApp(isAuthenticated: userId != null));
+  runApp(
+    MyApp(
+      isAuthenticated: userId != null,
+      scaffoldMessengerKey: scaffoldMessengerKey,
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
   final bool isAuthenticated;
-  final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+  final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey;
 
-  MyApp({super.key, required this.isAuthenticated}) {
-    // Initialize notification service
+  MyApp({
+    super.key,
+    required this.isAuthenticated,
+    required GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey,
+  }) : _scaffoldMessengerKey = scaffoldMessengerKey {
+    // Start the deadline checker
+    _startDeadlineChecker();
+  }
+
+  void _startDeadlineChecker() {
     final notificationService = NotificationService();
-    notificationService.initialize(_scaffoldMessengerKey);
     notificationService.startDeadlineChecker();
-    debugPrint('Notification service initialized in MyApp');
+    debugPrint('Deadline checker started in MyApp');
   }
 
   @override
@@ -57,7 +68,8 @@ class MyApp extends StatelessWidget {
         SignInScreen.routeName: (context) => const SignInScreen(),
         SignUpScreen.routeName: (context) => const SignUpScreen(),
         HomeScreen.routeName: (context) => const HomeScreen(),
-        ForgotPasswordScreen.routeName: (context) => const ForgotPasswordScreen(),
+        ForgotPasswordScreen.routeName:
+            (context) => const ForgotPasswordScreen(),
         SettingsScreen.routeName: (context) => const SettingsScreen(),
         // Profile update screen is handled via MaterialPageRoute with arguments
       },
