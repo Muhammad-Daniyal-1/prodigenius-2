@@ -10,11 +10,13 @@ import '../services/firestore_service.dart';
 import '../services/firebase_service.dart';
 import '../components/task_card.dart';
 import '../components/bottom_sheets/add_task_sheet.dart';
+import '../components/bottom_sheets/edit_task_sheet.dart';
 import '../components/bottom_sheets/add_category_sheet.dart';
 import '../components/bottom_sheets/profile_options_sheet.dart';
 import '../ml/ml_service.dart';
 import '../ml/preprocessing.dart';
 import 'package:logger/logger.dart';
+import 'profile_update_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -230,53 +232,78 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         backgroundColor: Colors.deepPurple,
         elevation: 0,
-        title: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: Colors.white,
-              radius: 18,
-              child: Text(
-                _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
-                style: const TextStyle(
-                  color: Colors.deepPurple,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Hello,',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
-                    fontSize: 14,
+        title: GestureDetector(
+          onTap: () {
+            // Navigate to profile screen when header is tapped
+            if (_userProfile != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProfileUpdateScreen(
+                    userProfile: _userProfile!,
                   ),
                 ),
-                Text(
-                  _userName,
+              ).then((updated) {
+                if (updated == true) {
+                  // Refresh user data when returning from profile screen with updates
+                  _loadUserProfile();
+                }
+              });
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Loading profile data...'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+              _loadUserProfile();
+            }
+          },
+          child: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: Colors.white,
+                radius: 18,
+                child: Text(
+                  _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Colors.deepPurple,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Hello,',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    _userName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications, color: Colors.white),
-            onPressed: () {
-              // TODO: Show notifications
-            },
-          ),
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white),
             onPressed: () {
               // Navigate to Settings screen
-              Navigator.pushNamed(context, '/settings');
+              Navigator.pushNamed(context, '/settings').then((_) {
+                // Refresh user data when returning from settings
+                _loadUserProfile();
+              });
             },
           ),
         ],
@@ -641,6 +668,86 @@ class _HomeScreenBodyState extends State<HomeScreenBody> {
       }
     }
   }
+  
+  // Show confirmation dialog before deleting a task
+  Future<void> _showDeleteConfirmation(String taskId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: const Text('Delete Task'),
+        content: const Text('Are you sure you want to delete this task? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed == true) {
+      await _deleteTask(taskId);
+    }
+  }
+  
+  // Delete a task
+  Future<void> _deleteTask(String taskId) async {
+    try {
+      await _firestoreService.deleteTask(taskId);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Task deleted successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting task: ${e.toString()}')),
+        );
+      }
+    }
+  }
+  
+  // Show edit task bottom sheet
+  void _showEditTaskSheet(TaskModel task) async {
+    try {
+      // Fetch categories
+      final categories = await _firestoreService.getCategoriesByUser(task.userId);
+      
+      if (mounted) {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (context) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: EditTaskBottomSheet(
+              firestoreService: _firestoreService,
+              categories: categories,
+              task: task,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading categories: ${e.toString()}')),
+        );
+      }
+    }
+  }
 
   Widget _buildTaskCard(TaskModel task) {
     // Format date
@@ -663,6 +770,8 @@ class _HomeScreenBodyState extends State<HomeScreenBody> {
       prioritizedByAI: task.prototizeByAI,
       taskId: task.id,
       onStatusUpdate: _updateTaskStatus,
+      onEdit: task.status != 'Completed' ? (id) => _showEditTaskSheet(task) : null,
+      onDelete: (id) => _showDeleteConfirmation(id),
       // teamAvatars: const [Colors.blue, Colors.green], // Default avatars
     );
   }

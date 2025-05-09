@@ -420,75 +420,81 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: FractionallySizedBox(
-        heightFactor: 0.9,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              BottomSheetWidgets.buildSheetHandle(),
-              BottomSheetWidgets.buildSheetTitle('New Task'),
-              const SizedBox(height: 10),
-              Divider(color: Colors.grey[300]),
-              Expanded(
-                child: ListView(
-                  padding: EdgeInsets.zero,
-                  children: [
-                    BottomSheetWidgets.buildTextField(
-                      controller: _titleController,
-                      label: "Task Title",
-                      hint: "Add Task Name...",
-                    ),
-                    const SizedBox(height: 15),
-                    _buildCategoryDropdown(),
-                    const SizedBox(height: 15),
-                    _buildPriorityDropdown(),
-                    const SizedBox(height: 15),
-                    _buildStatusDropdown(),
-                    const SizedBox(height: 15),
-                    BottomSheetWidgets.buildTextField(
-                      controller: _descriptionController,
-                      label: "Description",
-                      hint: "Add Descriptions...",
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: 15),
-                    _buildDateAndTimeSection(),
-                    const SizedBox(height: 15),
-                    CheckboxListTile(
-                      value: _prototizeByAI,
-                      onChanged: (value) {
-                        setState(() {
-                          _prototizeByAI = value ?? false;
-                        });
-                      },
-                      title: const Text('Prototize/Manage by AI'),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      contentPadding: EdgeInsets.zero,
-                      activeColor: Theme.of(context).primaryColor,
-                    ),
-                    const SizedBox(height: 20),
-                    _isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : BottomSheetWidgets.buildActionButtons(
+    // Create a scaffold with resizeToAvoidBottomInset set to true
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      resizeToAvoidBottomInset: true,
+      body: DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.all(16),
+            child: SingleChildScrollView(
+              controller: scrollController,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  BottomSheetWidgets.buildSheetHandle(),
+                  BottomSheetWidgets.buildSheetTitle('New Task'),
+                  const SizedBox(height: 10),
+                  Divider(color: Colors.grey[300]),
+                  BottomSheetWidgets.buildTextField(
+                    controller: _titleController,
+                    label: "Task Title",
+                    hint: "Add Task Name...",
+                  ),
+                  const SizedBox(height: 15),
+                  _buildCategoryDropdown(),
+                  const SizedBox(height: 15),
+                  _buildPriorityDropdown(),
+                  const SizedBox(height: 15),
+                  _buildStatusDropdown(),
+                  const SizedBox(height: 15),
+                  BottomSheetWidgets.buildTextField(
+                    controller: _descriptionController,
+                    label: "Description",
+                    hint: "Add Descriptions...",
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 15),
+                  _buildDateAndTimeSection(),
+                  const SizedBox(height: 15),
+                  CheckboxListTile(
+                    value: _prototizeByAI,
+                    onChanged: (value) {
+                      setState(() {
+                        _prototizeByAI = value ?? false;
+                      });
+                    },
+                    title: const Text('Prototize/Manage by AI'),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                    activeColor: Theme.of(context).primaryColor,
+                  ),
+                  const SizedBox(height: 20),
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : BottomSheetWidgets.buildActionButtons(
                           context,
                           onCancel: () => Navigator.pop(context),
                           onSubmit: _saveTask,
                           submitText: 'Create Task',
                         ),
-                    const SizedBox(height: 20),
-                  ],
-                ),
+                  // Add extra padding at the bottom to ensure content isn't hidden by keyboard
+                  SizedBox(height: MediaQuery.of(context).viewInsets.bottom > 0 ? 200 : 10),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

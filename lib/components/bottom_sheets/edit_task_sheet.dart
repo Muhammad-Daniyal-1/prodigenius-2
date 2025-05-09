@@ -5,21 +5,23 @@ import '../../services/firestore_service.dart';
 import '../../models/category_model.dart';
 import '../../models/task_model.dart';
 
-class AddTaskBottomSheet extends StatefulWidget {
+class EditTaskBottomSheet extends StatefulWidget {
   final FirestoreService firestoreService;
   final List<CategoryModel> categories;
+  final TaskModel task;
 
-  const AddTaskBottomSheet({
+  const EditTaskBottomSheet({
     super.key,
     required this.firestoreService,
     required this.categories,
+    required this.task,
   });
 
   @override
-  State<AddTaskBottomSheet> createState() => _AddTaskBottomSheetState();
+  State<EditTaskBottomSheet> createState() => _EditTaskBottomSheetState();
 }
 
-class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
+class _EditTaskBottomSheetState extends State<EditTaskBottomSheet> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
@@ -33,7 +35,7 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
   TimeOfDay _dueTime = TimeOfDay.now();
   bool _isLoading = false;
   List<CategoryModel> _categories = [];
-  bool _prototizeByAI = true;
+  bool _prototizeByAI = false;
 
   // Define statuses
   final List<String> _statuses = ['To Do', 'In Progress', 'Completed'];
@@ -42,12 +44,20 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
   void initState() {
     super.initState();
     _loadUserData();
-
+    
+    // Initialize with task data
+    _titleController.text = widget.task.title;
+    _descriptionController.text = widget.task.description;
+    _selectedCategoryId = widget.task.categoryId;
+    _selectedPriority = widget.task.priority;
+    _selectedStatus = widget.task.status;
+    _dueDate = widget.task.dueDate;
+    _dueTime = TimeOfDay(hour: _dueDate.hour, minute: _dueDate.minute);
+    _prototizeByAI = widget.task.prototizeByAI ?? false;
+    
     // Initialize date and time controllers
-    final now = DateTime.now();
-    _dateController.text = '${now.day}/${now.month}/${now.year}';
-    _timeController.text =
-        '${_dueTime.hour}:${_dueTime.minute.toString().padLeft(2, '0')}';
+    _dateController.text = '${_dueDate.day}/${_dueDate.month}/${_dueDate.year}';
+    _timeController.text = '${_dueTime.hour}:${_dueTime.minute.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -78,9 +88,6 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
       if (mounted) {
         setState(() {
           _categories = widget.categories;
-          if (_categories.isNotEmpty) {
-            _selectedCategoryId = _categories.first.id;
-          }
         });
       }
     } catch (e) {
@@ -147,9 +154,8 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
             borderRadius: BorderRadius.circular(8),
-            color: Colors.white,
+            border: Border.all(color: Colors.grey.shade300),
           ),
           child: child,
         ),
@@ -158,51 +164,41 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
   }
 
   Widget _buildCategoryDropdown() {
-    if (_categories.isEmpty) {
-      return _buildStyledDropdown(
-        label: 'Category',
-        child: const SizedBox(
-          height: 48,
-          child: Center(
-            child: SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          ),
-        ),
-      );
-    }
-
     return _buildStyledDropdown(
       label: 'Category',
       child: DropdownButtonHideUnderline(
-        child: ButtonTheme(
-          alignedDropdown: true,
-          child: DropdownButton<String>(
-            isExpanded: true,
-            value: _selectedCategoryId,
-            hint: const Text('Select Category'),
-            icon: const Icon(Icons.arrow_drop_down),
-            borderRadius: BorderRadius.circular(8),
-            items: [
-              const DropdownMenuItem<String>(
-                value: null,
-                child: Text('No Category'),
+        child: DropdownButton<String>(
+          isExpanded: true,
+          value: _selectedCategoryId,
+          hint: const Text('Select Category'),
+          items: _categories.map((category) {
+            return DropdownMenuItem<String>(
+              value: category.id,
+              child: Row(
+                children: [
+                  // Category color indicator - using a default color since CategoryModel doesn't have a color property
+                  Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    category.title,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ],
               ),
-              ..._categories.map(
-                (category) => DropdownMenuItem<String>(
-                  value: category.id,
-                  child: Text(category.title),
-                ),
-              ),
-            ],
-            onChanged: (value) {
-              setState(() {
-                _selectedCategoryId = value;
-              });
-            },
-          ),
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() {
+              _selectedCategoryId = value;
+            });
+          },
         ),
       ),
     );
@@ -212,34 +208,31 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
     return _buildStyledDropdown(
       label: 'Priority',
       child: DropdownButtonHideUnderline(
-        child: ButtonTheme(
-          alignedDropdown: true,
-          child: DropdownButton<TaskPriority>(
-            isExpanded: true,
-            value: _selectedPriority,
-            icon: const Icon(Icons.arrow_drop_down),
-            borderRadius: BorderRadius.circular(8),
-            items:
-                TaskPriority.values.map((priority) {
-                  return DropdownMenuItem<TaskPriority>(
-                    value: priority,
-                    child: Row(
-                      children: [
-                        _getPriorityIcon(priority),
-                        const SizedBox(width: 8),
-                        Text(priority.name),
-                      ],
-                    ),
-                  );
-                }).toList(),
-            onChanged: (value) {
-              if (value != null) {
-                setState(() {
-                  _selectedPriority = value;
-                });
-              }
-            },
-          ),
+        child: DropdownButton<TaskPriority>(
+          isExpanded: true,
+          value: _selectedPriority,
+          items: TaskPriority.values.map((priority) {
+            return DropdownMenuItem<TaskPriority>(
+              value: priority,
+              child: Row(
+                children: [
+                  _getPriorityIcon(priority),
+                  const SizedBox(width: 10),
+                  Text(
+                    priority.name,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+          onChanged: (value) {
+            if (value != null) {
+              setState(() {
+                _selectedPriority = value;
+              });
+            }
+          },
         ),
       ),
     );
@@ -249,121 +242,136 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
     return _buildStyledDropdown(
       label: 'Status',
       child: DropdownButtonHideUnderline(
-        child: ButtonTheme(
-          alignedDropdown: true,
-          child: DropdownButton<String>(
-            isExpanded: true,
-            value: _selectedStatus,
-            icon: const Icon(Icons.arrow_drop_down),
-            borderRadius: BorderRadius.circular(8),
-            items:
-                _statuses.map((status) {
-                  return DropdownMenuItem<String>(
-                    value: status,
-                    child: Row(
-                      children: [
-                        _getStatusIcon(status),
-                        const SizedBox(width: 8),
-                        Text(status),
-                      ],
-                    ),
-                  );
-                }).toList(),
-            onChanged: (value) {
-              if (value != null) {
-                setState(() {
-                  _selectedStatus = value;
-                });
-              }
-            },
-          ),
+        child: DropdownButton<String>(
+          isExpanded: true,
+          value: _selectedStatus,
+          items: _statuses.map((status) {
+            return DropdownMenuItem<String>(
+              value: status,
+              child: Row(
+                children: [
+                  _getStatusIcon(status),
+                  const SizedBox(width: 10),
+                  Text(
+                    status,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+          onChanged: (value) {
+            if (value != null) {
+              setState(() {
+                _selectedStatus = value;
+              });
+            }
+          },
         ),
       ),
     );
   }
 
-  Widget _getPriorityIcon(TaskPriority priority) {
-    Color color;
-    IconData icon = Icons.flag;
-
+  Icon _getPriorityIcon(TaskPriority priority) {
     switch (priority) {
       case TaskPriority.lowest:
-        color = Colors.grey;
-        break;
+        return const Icon(Icons.flag, color: Colors.grey, size: 20);
       case TaskPriority.low:
-        color = Colors.blue;
-        break;
+        return const Icon(Icons.flag, color: Colors.blue, size: 20);
       case TaskPriority.medium:
-        color = Colors.green;
-        break;
+        return const Icon(Icons.flag, color: Colors.orange, size: 20);
       case TaskPriority.high:
-        color = Colors.orange;
-        break;
+        return const Icon(Icons.flag, color: Colors.deepOrange, size: 20);
       case TaskPriority.highest:
-        color = Colors.red;
-        break;
+        return const Icon(Icons.flag, color: Colors.red, size: 20);
     }
-
-    return Icon(icon, color: color, size: 18);
   }
 
-  Widget _getStatusIcon(String status) {
-    IconData icon;
-    Color color;
-
+  Icon _getStatusIcon(String status) {
     switch (status) {
       case 'To Do':
-        icon = Icons.circle_outlined;
-        color = Colors.grey;
-        break;
+        return const Icon(Icons.circle_outlined, color: Colors.grey, size: 20);
       case 'In Progress':
-        icon = Icons.sync;
-        color = Colors.blue;
-        break;
+        return const Icon(Icons.play_circle_filled,
+            color: Colors.blue, size: 20);
       case 'Completed':
-        icon = Icons.check_circle;
-        color = Colors.green;
-        break;
+        return const Icon(Icons.check_circle, color: Colors.green, size: 20);
       default:
-        icon = Icons.circle_outlined;
-        color = Colors.grey;
+        return const Icon(Icons.circle_outlined, color: Colors.grey, size: 20);
     }
-
-    return Icon(icon, color: color, size: 18);
   }
 
   Widget _buildDateAndTimeSection() {
     return Row(
       children: [
         Expanded(
-          child: BottomSheetWidgets.buildDateTimeField(
-            context,
-            controller: _dateController,
-            label: "Due Date",
-            hint: "dd/mm/yy",
-            icon: Icons.calendar_today,
-            onTap: _selectDate,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Due Date',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: _selectDate,
+                child: TextField(
+                  controller: _dateController,
+                  readOnly: true,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    suffixIcon: const Icon(Icons.calendar_today, size: 20),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 15),
         Expanded(
-          child: BottomSheetWidgets.buildDateTimeField(
-            context,
-            controller: _timeController,
-            label: "Due Time",
-            hint: "hh : mm",
-            icon: Icons.access_time,
-            onTap: _selectTime,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Due Time',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: _selectTime,
+                child: TextField(
+                  controller: _timeController,
+                  readOnly: true,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    suffixIcon: const Icon(Icons.access_time, size: 20),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  Future<void> _saveTask() async {
+  Future<void> _updateTask() async {
+    // Validate inputs
     if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a task title')),
+        const SnackBar(
+          content: Text('Please enter a task title'),
+        ),
       );
       return;
     }
@@ -382,31 +390,28 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
     });
 
     try {
-      final task = TaskModel(
-        id: '', // Firestore will generate this
-        userId: _userId!,
+      final updatedTask = widget.task.copyWith(
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         categoryId: _selectedCategoryId,
         dueDate: _dueDate,
         priority: _selectedPriority,
         status: _selectedStatus,
-        createdAt: DateTime.now(),
         prototizeByAI: _prototizeByAI,
       );
 
-      await widget.firestoreService.addTask(task);
+      await widget.firestoreService.updateTask(updatedTask);
 
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Task created successfully')),
+          const SnackBar(content: Text('Task updated successfully')),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating task: ${e.toString()}')),
+          SnackBar(content: Text('Error updating task: ${e.toString()}')),
         );
       }
     } finally {
@@ -433,7 +438,7 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
           child: Column(
             children: [
               BottomSheetWidgets.buildSheetHandle(),
-              BottomSheetWidgets.buildSheetTitle('New Task'),
+              BottomSheetWidgets.buildSheetTitle('Edit Task'),
               const SizedBox(height: 10),
               Divider(color: Colors.grey[300]),
               Expanded(
@@ -477,11 +482,11 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                     _isLoading
                         ? const Center(child: CircularProgressIndicator())
                         : BottomSheetWidgets.buildActionButtons(
-                          context,
-                          onCancel: () => Navigator.pop(context),
-                          onSubmit: _saveTask,
-                          submitText: 'Create Task',
-                        ),
+                            context,
+                            onCancel: () => Navigator.pop(context),
+                            onSubmit: _updateTask,
+                            submitText: 'Update Task',
+                          ),
                     const SizedBox(height: 20),
                   ],
                 ),
