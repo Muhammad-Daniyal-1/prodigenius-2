@@ -15,6 +15,7 @@ import '../components/bottom_sheets/profile_options_sheet.dart';
 import '../ml/ml_service.dart';
 import '../ml/preprocessing.dart';
 import 'package:logger/logger.dart';
+import 'profile_update_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -230,53 +231,78 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         backgroundColor: Colors.deepPurple,
         elevation: 0,
-        title: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: Colors.white,
-              radius: 18,
-              child: Text(
-                _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
-                style: const TextStyle(
-                  color: Colors.deepPurple,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Hello,',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
-                    fontSize: 14,
+        title: GestureDetector(
+          onTap: () {
+            // Navigate to profile screen when header is tapped
+            if (_userProfile != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProfileUpdateScreen(
+                    userProfile: _userProfile!,
                   ),
                 ),
-                Text(
-                  _userName,
+              ).then((updated) {
+                if (updated == true) {
+                  // Refresh user data when returning from profile screen with updates
+                  _loadUserProfile();
+                }
+              });
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Loading profile data...'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+              _loadUserProfile();
+            }
+          },
+          child: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: Colors.white,
+                radius: 18,
+                child: Text(
+                  _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Colors.deepPurple,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Hello,',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    _userName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications, color: Colors.white),
-            onPressed: () {
-              // TODO: Show notifications
-            },
-          ),
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white),
             onPressed: () {
               // Navigate to Settings screen
-              Navigator.pushNamed(context, '/settings');
+              Navigator.pushNamed(context, '/settings').then((_) {
+                // Refresh user data when returning from settings
+                _loadUserProfile();
+              });
             },
           ),
         ],
